@@ -11,6 +11,12 @@ post '/' do
 	args << data if data
 	puts args
 	res = RestClient.send(*args)
-	content_type(res.headers[:content_type])
-	res.body
+	status(res.code)
+	headers(res.headers.inject({}) do |r, kvp|
+		k, v = kvp
+		k = k.to_s.split('_').map(&:capitalize).join('-')
+		r[k] = v
+		r
+	end)
+	body(res.body)
 end
