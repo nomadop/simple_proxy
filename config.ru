@@ -1,5 +1,6 @@
 require 'rubygems' 
 require 'sinatra' 
+require 'simple_proxy.rb' 
 
 root_dir = File.dirname(__FILE__) 
 
