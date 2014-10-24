@@ -7,7 +7,7 @@ require 'json'
 class Connection
 	@@count = 0
 	@@redis = Redis.new(host: '203.195.155.91', port: 6380, db: 7)
-	@@localhost = File.read('localhost')
+	@@localhost = File.read('localhost').gsub(/\n/, '')
 
 	def self.connect
 		@@count += 1
