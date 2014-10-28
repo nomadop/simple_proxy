@@ -1,4 +1,4 @@
-@dir = File.dirname(__FILE__)
+@dir = Dir.pwd + '/'
 
 worker_processes 2
 working_directory @dir
