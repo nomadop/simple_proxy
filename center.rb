@@ -23,6 +23,6 @@ post '/' do
 		res
 	rescue Exception => e
 		headers({system_error: 'true'})
-		e.inspect
+		{error: e.inspect, backtrace: e.backtrace}.to_json
 	end
 end
