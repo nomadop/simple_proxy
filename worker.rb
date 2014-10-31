@@ -69,7 +69,7 @@ class Worker
 	end
 end
 
-CenterHost = File.read('centerhost')
+CenterHost = File.read('centerhost').gsub(/\n/, '')
 RedisServer = Redis.new(host: CenterHost, port: 6379, db: 15)
 SocketHost = ARGV[0]
 SocketPort = ARGV[1].to_i
