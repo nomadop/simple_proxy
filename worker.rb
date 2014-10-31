@@ -1,36 +1,40 @@
 require 'rubygems'
-# require 'faraday'
 require 'rest-client'
 require 'redis'
 require 'json'
 require 'yaml'
 
-ProxyRedis = Redis.new(host: 'localhost', port: 6379, db: 5)
+require './request.rb'
+require './response.rb'
 
 class Worker
-	attr_accessor :current_id
+	attr_accessor :socket, :thread
 
-	def initialize
-		@current_id = nil
+	def initialize socket
+		@socket = socket
+		@thread = Thread.new { run }
 	end
 
 	def run
 		while true
-			sleep 1
-			params = nil
-			ProxyRedis.synchronize do
-				queue = JSON.parse(ProxyRedis.get('queue'))
-				params = queue.pop
-				ProxyRedis.set('queue', queue.to_json)
-			end
-			if params
-				p params
-				@current_id = params['id']
-				url = params['url']
-				method = params['method'] || :get
-				data = params['data']
-				# args = [method, url]
-				# args << data if data
+			sleep 0.1
+			begin
+				msg = socket.recv(1000000000)
+				loop do
+					begin
+						rest = socket.recv_nonblock(1000000000)
+						msg += rest if rest
+					rescue Exception => e
+						break
+					end
+				end
+				request = YAML.load(msg)
+				st = Time.now
+				p request
+				@current_id = request.id
+				url = request.url
+				method = request.method || :get
+				data = request.data || {}
 				uri = URI(url)
 				uri.singleton_class.class_eval do
 					def empty?
@@ -48,30 +52,49 @@ class Worker
 					http.open_timeout = 2
 					http.request(req)
 				end
-				# res = RestClient.send(*args)
-				ProxyRedis.set(@current_id, res.to_yaml)
-				p "respond to #{@current_id}"
+				response = Response.new(res)
+				socket.send(response.to_yaml, 0)
+				p "respond to #{@current_id} (#{((Time.now - st) * 1000).round(0)}ms)"
+			rescue Exception => e
+				File.open('error', 'a+') do |io|
+					io.puts(e.inspect)
+					e.backtrace.each do |m|
+						io.puts("    #{m}")
+					end
+					io.puts "\n"
+				end
+				socket.send(e.to_yaml, 0)
 			end
 		end
-	rescue Exception => e
-		File.open('error', 'a+') do |io|
-			io.puts(e.inspect)
-			e.backtrace.each do |m|
-				io.puts("    #{m}")
-			end
-			io.puts "\n"
-		end
-		ProxyRedis.set(@current_id, {error: e.inspect, backtrace: e.backtrace}.to_json) if @current_id
-		run
 	end
 end
 
+CenterHost = File.read('centerhost')
+RedisServer = Redis.new(host: CenterHost, port: 6379, db: 15)
+SocketHost = ARGV[0]
+SocketPort = ARGV[1].to_i
+SocketServer = TCPServer.new SocketPort
 
-tasks = []
-ARGV.first.to_i.times do
-	tasks << Thread.new {
-		w = Worker.new
-		w.run
-	}
+RedisServer.synchronize do
+	servers = JSON.parse(RedisServer.get('servers') || "{}")
+	servers["#{SocketHost}:#{SocketPort}"] = 0
+	RedisServer.set('servers', servers.to_json)
 end
-tasks.each {|t| t.join}
+
+Listener = Thread.new do
+	loop do
+		client = SocketServer.accept
+		p "new client connected: #{client}"
+		w = Worker.new(client)
+	end
+end
+
+begin
+	Listener.join
+ensure
+	RedisServer.synchronize do
+		servers = JSON.parse(RedisServer.get('servers'))
+		servers.delete("#{SocketHost}:#{SocketPort}")
+		RedisServer.set('servers', servers.to_json)
+	end
+end
