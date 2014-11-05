@@ -18,13 +18,16 @@ class Connection
 	def initialize host, port
 		@host = host
 		@port = port
+		# @socket = nil
 		@socket = TCPSocket.new host, port
 	end
 
 	def connect
+		# @socket = TCPSocket.new host, port
 	end
 
 	def disconnect
+		# @socket.close
 		@busy = false
 	end
 
@@ -33,6 +36,7 @@ class Connection
     loop do
       begin
         msg = socket.read_nonblock(100000)
+        # p msg
         data += msg if msg
         break if data.end_with?('EOF')
       rescue Errno::EAGAIN => e
@@ -43,17 +47,26 @@ class Connection
       end
     end
     data[0...-3]
+		# socket.read
 	end
 
 	def send msg
+		# socket.send(msg + 'EOF', 0)
 		socket.write(msg)
 		socket.write('EOF')
+		# socket.write(msg)
+		# socket.close_write
 	end
 
 	def self.new_conn
 		if ConnList.size <= 10
-			servers = JSON.parse(RedisServer.get('servers') || "{}")
-			server = servers.sort_by{|k ,v| v}.first[0]
+			# server = nil
+			# RedisServer.synchronize do
+			  servers = JSON.parse(RedisServer.get('servers') || "{}")
+			  server = servers.sort_by{|k ,v| v}.first[0]
+			#   servers[server] += 1
+			#   RedisServer.set('servers', servers.to_json)
+			# end
 			host, port = server.split(':')
 			conn = Connection.new(host, port)
 			ConnList << conn
@@ -86,6 +99,7 @@ post '/' do
 		req = Request.new(params[:method], params[:url], params[:data])
 		conn.send(req.to_yaml)
 		msg = conn.recv
+		# p msg
 		res = YAML.load(msg)
 		status(res.status)
 		content_type(res.content_type)
@@ -96,4 +110,13 @@ post '/' do
 	ensure
 		conn.disconnect if conn
 	end
+end
+
+@@counter = 0
+
+get '/test' do
+	@@counter += 1
+	p @@counter
+	@@counter -= 1
+	'test'
 end
