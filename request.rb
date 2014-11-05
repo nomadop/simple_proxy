@@ -1,1 +1,1 @@
-class Request < Struct.new(:id, :method, :url, :data); end
+class Request < Struct.new(:method, :url, :data); end
