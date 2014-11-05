@@ -36,11 +36,15 @@ class Worker
       end
     end
     data[0...-3]
+    # socket.read
   end
 
   def send msg
+    # socket.send(msg + 'EOF', 0)
     socket.write(msg)
     socket.write('EOF')
+    # socket.write(msg)
+    # socket.close_write
   end
   
   def close
