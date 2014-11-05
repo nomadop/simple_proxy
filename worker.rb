@@ -58,7 +58,6 @@ class Worker
         break unless request
         st = Time.now
         p request
-        @current_id = request.id
         url = request.url
         method = request.method || :get
         data = request.data || {}
