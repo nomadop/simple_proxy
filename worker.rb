@@ -4,6 +4,8 @@ require 'redis'
 require 'json'
 require 'yaml'
 
+Dir.chdir '/var/www/simple_proxy'
+
 require './request.rb'
 require './response.rb'
 
